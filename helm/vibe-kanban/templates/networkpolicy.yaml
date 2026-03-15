@@ -1,0 +1,341 @@
+{{- if .Values.networkPolicy.enabled }}
+# ── PostgreSQL ──────────────────────────────────────────────────────────────
+# Accepts connections only from server, electric, and relay (if enabled).
+# No egress needed (postgres is a passive listener).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "vibe-kanban.postgres.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "vibe-kanban.postgres.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.server.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 5432
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.electric.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 5432
+    {{- if .Values.relay.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.relay.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 5432
+    {{- end }}
+    {{- with .Values.networkPolicy.postgres.extraIngress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- with .Values.networkPolicy.postgres.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+---
+# ── ElectricSQL ─────────────────────────────────────────────────────────────
+# Accepts connections from the server (Shape API) and same-namespace pods.
+# Needs egress to postgres only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "vibe-kanban.electric.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: electric
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "vibe-kanban.electric.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.server.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 3000
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 3000
+    {{- with .Values.networkPolicy.electric.extraIngress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.postgres.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 5432
+    {{- with .Values.networkPolicy.electric.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+---
+# ── Remote Server ────────────────────────────────────────────────────────────
+# Accepts connections from the ingress controller, relay, and worker.
+# Needs egress to postgres, electric, and external HTTPS (OAuth providers).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "vibe-kanban.server.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "vibe-kanban.server.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.namespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podSelector | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8081
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8081
+    {{- if .Values.relay.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.relay.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8081
+    {{- end }}
+    {{- if .Values.worker.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.worker.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8081
+    {{- end }}
+    {{- with .Values.networkPolicy.server.extraIngress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.postgres.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.electric.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              {{- toYaml .Values.networkPolicy.externalEgressExcludeCIDRs | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 443
+    {{- with .Values.networkPolicy.server.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- if .Values.worker.enabled }}
+---
+# ── Worker ───────────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "vibe-kanban.worker.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "vibe-kanban.worker.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.worker.env.PORT | default 3000 }}
+    {{- if .Values.worker.ingress.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.namespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podSelector | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.worker.env.PORT | default 3000 }}
+    {{- end }}
+    {{- with .Values.networkPolicy.worker.extraIngress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.server.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8081
+    {{- if .Values.relay.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.relay.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8082
+    {{- end }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              {{- toYaml .Values.networkPolicy.externalEgressExcludeCIDRs | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+    {{- with .Values.networkPolicy.worker.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- if .Values.relay.enabled }}
+---
+# ── Relay Server ─────────────────────────────────────────────────────────────
+# Accepts connections from the ingress controller and worker pods.
+# Needs egress to postgres (token validation) and to server (JWT verify).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "vibe-kanban.relay.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: relay
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "vibe-kanban.relay.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.namespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podSelector | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8082
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8082
+    {{- if .Values.worker.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.worker.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8082
+    {{- end }}
+    {{- with .Values.networkPolicy.relay.extraIngress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.postgres.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "vibe-kanban.server.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8081
+    {{- with .Values.networkPolicy.relay.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- end }}

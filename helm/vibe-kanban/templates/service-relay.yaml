@@ -1,0 +1,19 @@
+{{- if .Values.relay.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "vibe-kanban.relay.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: relay
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "vibe-kanban.relay.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8082
+      targetPort: http
+      protocol: TCP
+{{- end }}

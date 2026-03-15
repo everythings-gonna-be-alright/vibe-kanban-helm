@@ -1,0 +1,110 @@
+{{- if .Values.relay.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vibe-kanban.relay.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: relay
+spec:
+  replicas: {{ .Values.relay.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "vibe-kanban.relay.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      labels:
+        {{- include "vibe-kanban.relay.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "vibe-kanban.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.relay.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z {{ include "vibe-kanban.postgres.host" . }} 5432; do
+                echo "waiting for postgres…"; sleep 3
+              done
+      containers:
+        - name: relay
+          image: "{{ .Values.relay.image.repository }}:{{ .Values.relay.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.relay.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.relay.securityContext | nindent 12 }}
+          # Inject every key from the credentials secret as an env var.
+          envFrom:
+            - secretRef:
+                name: {{ include "vibe-kanban.secretName" . }}
+          env:
+            - name: RUST_LOG
+              value: {{ .Values.relay.env.RUST_LOG | quote }}
+            - name: RELAY_LISTEN_ADDR
+              value: {{ .Values.relay.env.RELAY_LISTEN_ADDR | quote }}
+            # DB_PASSWORD must appear in env so that $(DB_PASSWORD) below is expanded.
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vibe-kanban.secretName" . }}
+                  key: DB_PASSWORD
+            - name: SERVER_DATABASE_URL
+              value: "postgres://{{ .Values.postgres.username }}:$(DB_PASSWORD)@{{ include "vibe-kanban.postgres.host" . }}:5432/{{ .Values.postgres.database }}"
+          ports:
+            - name: http
+              containerPort: 8082
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources:
+            {{- toYaml .Values.relay.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.relay.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.relay.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.relay.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

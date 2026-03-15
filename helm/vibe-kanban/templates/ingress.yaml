@@ -1,0 +1,114 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "vibe-kanban.server.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+  annotations:
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "vibe-kanban.server.fullname" . }}
+                port:
+                  name: http
+{{- end }}
+
+{{- if and .Values.worker.enabled .Values.worker.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "vibe-kanban.worker.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+  annotations:
+    {{- with .Values.worker.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.worker.ingress.className | quote }}
+  {{- if .Values.worker.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.worker.ingress.host | quote }}
+      secretName: {{ .Values.worker.ingress.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.worker.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "vibe-kanban.worker.fullname" . }}
+                port:
+                  name: http
+{{- end }}
+{{- if and .Values.relay.enabled .Values.relay.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "vibe-kanban.relay.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: relay
+  annotations:
+    {{- with .Values.relay.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.relay.ingress.className | quote }}
+  {{- if .Values.relay.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.relay.ingress.host | quote }}
+        - {{ printf "*.%s" .Values.relay.ingress.host | quote }}
+      secretName: {{ .Values.relay.ingress.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.relay.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "vibe-kanban.relay.fullname" . }}
+                port:
+                  name: http
+    # Wildcard hostname — routes all *.relay.example.com tunnel traffic
+    - host: {{ printf "*.%s" .Values.relay.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "vibe-kanban.relay.fullname" . }}
+                port:
+                  name: http
+{{- end }}

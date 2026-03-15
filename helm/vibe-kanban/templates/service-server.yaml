@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "vibe-kanban.server.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "vibe-kanban.server.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+      protocol: TCP

@@ -1,0 +1,21 @@
+{{- if .Values.worker.enabled }}
+{{- if .Values.worker.persistence.homeNode.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "vibe-kanban.worker.fullname" . }}-home-node
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  accessModes:
+    - {{ .Values.worker.persistence.homeNode.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.worker.persistence.homeNode.size }}
+  {{- if .Values.worker.persistence.homeNode.storageClass }}
+  storageClassName: {{ .Values.worker.persistence.homeNode.storageClass }}
+  {{- end }}
+{{- end }}
+{{- end }}

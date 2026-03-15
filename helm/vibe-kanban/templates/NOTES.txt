@@ -1,0 +1,48 @@
+Vibe Kanban has been deployed!
+
+  Release:   {{ .Release.Name }}
+  Namespace: {{ .Release.Namespace }}
+  Version:   {{ .Chart.AppVersion }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Application URL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- if .Values.ingress.enabled }}
+  https://{{ .Values.ingress.host }}
+{{- else }}
+  Ingress is disabled. Forward the server port locally:
+
+  kubectl port-forward -n {{ .Release.Namespace }} \
+    svc/{{ include "vibe-kanban.server.fullname" . }} 8081:8081
+
+  Then open: http://localhost:8081
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Post-deployment checks
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # All pods
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+  # Server health
+  kubectl exec -n {{ .Release.Namespace }} deploy/{{ include "vibe-kanban.server.fullname" . }} \
+    -- wget -qO- http://127.0.0.1:8081/v1/health
+
+  # TLS certificate
+  kubectl get certificate -n {{ .Release.Namespace }}
+
+  # Logs
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} \
+    --prefix --all-containers
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ⚠ Security reminders
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  • All credentials are loaded from the pre-existing Secret "{{ .Values.secrets.existingSecret }}".
+    Ensure it exists in namespace {{ .Release.Namespace }} before deploying.
+  • Configure at least one OAuth provider (GitHub or Google) inside that Secret.
+  • Use External Secrets Operator to sync credentials from AWS Secrets Manager / Vault.
+{{- if .Values.relay.enabled }}
+  • Relay server is enabled. Ensure wildcard DNS and TLS are configured for
+    {{ .Values.relay.ingress.host }} and *.{{ .Values.relay.ingress.host }}.
+{{- end }}

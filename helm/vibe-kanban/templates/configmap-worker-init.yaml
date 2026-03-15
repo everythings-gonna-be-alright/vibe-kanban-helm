@@ -1,0 +1,15 @@
+{{- if and .Values.worker.enabled .Values.worker.preStartScript.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "vibe-kanban.worker.fullname" . }}-init-script
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+data:
+  init.sh: |
+    #!/bin/sh
+    set -e
+{{ .Values.worker.preStartScript.script | indent 4 }}
+{{- end }}

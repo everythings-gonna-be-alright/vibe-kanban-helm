@@ -1,0 +1,19 @@
+{{- if .Values.worker.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "vibe-kanban.worker.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vibe-kanban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "vibe-kanban.worker.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.worker.env.PORT | default 3000 }}
+      targetPort: http
+      protocol: TCP
+{{- end }}

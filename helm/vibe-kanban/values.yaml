@@ -1,0 +1,423 @@
+## Vibe Kanban — default values
+## Sensitive values should be supplied via --set or a sealed-secrets/external-secrets overlay,
+## never committed in plain text.
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Pull secrets for the Harbor private registry
+imagePullSecrets: []
+
+# ---------------------------------------------------------------------------
+# Shared service account
+# ---------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+  name: ""
+
+# ---------------------------------------------------------------------------
+# Sensitive credentials
+# ---------------------------------------------------------------------------
+# Option A — reference an existing Secret (recommended for production).
+#   Set existingSecret to the Secret name; the chart will NOT create its own Secret.
+#
+# Option B — let the chart create the Secret from the inline values below.
+#   Leave existingSecret empty and fill in the fields.
+#   Never commit real values to git — use helm --set or a secrets manager overlay.
+#
+# Required keys (both options must contain these):
+#
+#   VIBEKANBAN_REMOTE_JWT_SECRET   JWT signing secret (openssl rand -base64 48)
+#                                  Consumed by: server, worker, relay (envFrom)
+#
+#   DB_PASSWORD                    PostgreSQL application user password
+#                                  (openssl rand -base64 24)
+#                                  Consumed by: postgres, server, relay
+#
+#   ELECTRIC_ROLE_PASSWORD         electric_sync replication role password
+#                                  (openssl rand -base64 24)
+#                                  Consumed by: electric
+#
+# Optional keys (leave empty to disable the feature):
+#
+#   GITHUB_OAUTH_CLIENT_ID / GITHUB_OAUTH_CLIENT_SECRET
+#   GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET
+#   LOOPS_EMAIL_API_KEY
+secrets:
+  # Option A: name of a pre-existing Secret. Leave empty to use Option B.
+  existingSecret: ""
+
+  # Option B: inline values — chart creates the Secret automatically.
+  # Leave empty to auto-generate a secure random value on first install
+  # (preserved across upgrades via lookup).
+  jwtSecret: ""
+  dbPassword: ""
+  electricRolePassword: ""
+  # GitHub OAuth application (leave empty to disable)
+  githubClientId: ""
+  githubClientSecret: ""
+  # Google OAuth application (leave empty to disable)
+  googleClientId: ""
+  googleClientSecret: ""
+  # Loops transactional email API key (leave empty to disable)
+  loopsEmailApiKey: ""
+
+# ---------------------------------------------------------------------------
+# PostgreSQL — bundled StatefulSet
+# Requires wal_level=logical for ElectricSQL replication.
+# ---------------------------------------------------------------------------
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+
+  database: remote
+  username: remote
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  storage:
+    size: 10Gi
+    storageClass: ""
+
+  podSecurityContext:
+    fsGroup: 999
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false  # postgres writes to PGDATA mount
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# ---------------------------------------------------------------------------
+# ElectricSQL — real-time sync engine
+# Runs as root by default (upstream image constraint).
+# ---------------------------------------------------------------------------
+electric:
+  image:
+    repository: electricsql/electric
+    tag: "1.3.3"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+
+  resources: {}
+  # limits:
+  #   cpu: 4
+  #   memory: 512Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 256Mi
+
+  storage:
+    size: 1Gi
+    storageClass: ""
+
+  podSecurityContext: {}
+
+  securityContext:
+    # electricsql/electric currently requires root; set to true if your build supports it
+    runAsNonRoot: false
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# ---------------------------------------------------------------------------
+# Remote Server — Rust API + Vite frontend
+# Build image from: github.com/BloopAI/vibe-kanban  crates/remote/Dockerfile
+# Pass VITE_RELAY_API_BASE_URL as a build-arg, not a runtime env var.
+# ---------------------------------------------------------------------------
+server:
+  image:
+    repository: your-registry/vibe-kanban
+    tag: "remote-v0.1.22"
+    pullPolicy: Always
+
+  replicaCount: 1
+
+  env:
+    RUST_LOG: "info"
+    SERVER_LISTEN_ADDR: "0.0.0.0:8081"
+
+  resources: {}
+  # requests:
+  #   cpu: 200m
+  #   memory: 256Mi
+  # limits:
+  #   cpu: 8
+  #   memory: 512Mi
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+
+  podAnnotations: {}
+  podLabels: {}
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# ---------------------------------------------------------------------------
+# Relay / Tunnel server (optional)
+# ---------------------------------------------------------------------------
+relay:
+  enabled: true
+  image:
+    repository: your-registry/vibe-kanban
+    tag: "remote-v0.1.22"
+    pullPolicy: Always
+
+  replicaCount: 1
+
+  env:
+    RUST_LOG: "info"
+    RELAY_LISTEN_ADDR: "0.0.0.0:8082"
+
+  resources: {}
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # limits:
+  #   cpu: 4
+  #   memory: 256Mi
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations:
+      cert-manager.io/cluster-issuer: ""
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+      nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+
+    host: "relay.example.com"
+    tls:
+      enabled: true
+      secretName: vibe-kanban-relay-tls
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# ---------------------------------------------------------------------------
+# Worker — coding-agent runner / desktop-client daemon
+# Connects to the remote server (and optionally the relay) to process
+# ---------------------------------------------------------------------------
+worker:
+  enabled: true
+  image:
+    repository: your-registry/vibe-kanban
+    tag: "worker-v0.1.30"  # defaults to Chart.AppVersion
+    pullPolicy: Always
+
+  replicaCount: 1
+
+  env:
+    # Rust log level
+    RUST_LOG: "info"
+    # Base URL of the remote server API.
+    # Defaults to the internal ClusterIP service when left empty.
+    VK_SHARED_API_BASE: ""
+    # Set to "1" to enable relay/tunnel mode (VK_TUNNEL=1).
+    VK_TUNNEL: "1"
+    # Base URL of the relay API.
+    # Defaults to the internal relay service when relay.enabled=true and left empty.
+    VK_SHARED_RELAY_API_BASE: ""
+    # Allowed origins for the worker web UI.
+    VK_ALLOWED_ORIGINS: ""
+    # Disable PostHog tracking.
+    # POSTHOG_API_KEY: ""
+    # POSTHOG_API_ENDPOINT: ""
+
+  resources: {}
+  # requests:
+  #   cpu: 200m
+  #   memory: 1024Mi
+  # limits:
+  #   cpu: 8
+  #   memory: 1024Mi
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+
+  persistence:
+    homeNode:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 10Gi
+
+  # Pre-start init script — runs in a dedicated init container after the server
+  # is ready but before the worker starts. Useful for git clone, package installs,
+  # SSH key setup, dotfile bootstrapping, etc.
+  # The script has access to /home/node and /home/workspace via the same PVCs.
+  preStartScript:
+    enabled: false
+
+    # Override the init container image. Defaults to the worker image.
+    # Use a richer image (e.g. ubuntu) if you need apt/apk.
+    image: ""
+
+    # Set to true to run the init container as root (needed for apt install etc.).
+    # When false the same securityContext as the main worker container is used.
+    runAsRoot: false
+
+    # Shell script to execute. Runs with `set -e` (exits on first error).
+    script: |
+      # Examples:
+      # git clone https://github.com/org/repo /home/workspace/myrepo
+      # git clone https://github.com/org/senior-repo /home/workspace/senior-repo
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations:
+      cert-manager.io/cluster-issuer: ""
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    host: ""
+    tls:
+      enabled: true
+      secretName: vibe-kanban-worker-tls
+
+  podAnnotations: {}
+  podLabels: {}
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# ---------------------------------------------------------------------------
+# Ingress for the main server
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: ""
+  annotations:
+    cert-manager.io/cluster-issuer: ""
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+  host: ""
+  tls:
+    enabled: true
+    secretName: ""
+
+# ---------------------------------------------------------------------------
+# NetworkPolicy — default-deny with explicit allow rules
+# ---------------------------------------------------------------------------
+networkPolicy:
+  enabled: false
+
+  # Ingress controller identification — used to allow traffic from the
+  # ingress controller into server, relay, and worker pods.
+  # Adjust these selectors to match your ingress controller installation.
+  ingressController:
+    namespaceSelector:
+      kubernetes.io/metadata.name: ingress-nginx
+    podSelector:
+      app.kubernetes.io/instance: ingress-nginx
+
+  # CIDR ranges to exclude from external egress rules (blocks traffic
+  # to private networks). Override if your cluster uses non-standard ranges.
+  externalEgressExcludeCIDRs:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    - 10.0.0.0/16
+
+  # Per-component extra rules — appended to the generated policy.
+  # Use standard Kubernetes NetworkPolicy ingress/egress rule syntax.
+  #
+  # Example — allow Prometheus scraping on postgres:
+  #   postgres:
+  #     extraIngress:
+  #       - from:
+  #           - namespaceSelector:
+  #               matchLabels:
+  #                 kubernetes.io/metadata.name: monitoring
+  #         ports:
+  #           - protocol: TCP
+  #             port: 9187
+  postgres:
+    extraIngress: []
+    extraEgress: []
+  electric:
+    extraIngress: []
+    extraEgress: []
+  server:
+    extraIngress: []
+    extraEgress: []
+  relay:
+    extraIngress: []
+    extraEgress: []
+  worker:
+    extraIngress: []
+    extraEgress: []
+
+# ---------------------------------------------------------------------------
+# PodDisruptionBudget for the server (keeps one replica available during drains)
+# ---------------------------------------------------------------------------
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

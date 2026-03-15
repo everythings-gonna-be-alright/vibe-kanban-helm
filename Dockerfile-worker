@@ -1,0 +1,24 @@
+FROM node:24-alpine
+
+ARG WORKER_TAG=${WORKER_TAG:-v0.1.30}
+
+ARG CLAUDE_CODE_VERSION=latest
+# Core system tools:
+#   git       — worktree operations in workspaces
+RUN apk add --no-cache \
+      git
+
+# Runtime env defaults — overridden by Kubernetes Deployment env vars.
+ENV NODE_ENV=production
+
+# Install Claude Code CLI globally as root so the binary lands in
+# /usr/local/bin and is world-executable.
+RUN npm install --no-update-notifier --global \
+      @anthropic-ai/claude-code${CLAUDE_CODE_VERSION:+@$CLAUDE_CODE_VERSION}
+
+# Install vibe-kanban globally as root so the binary is in PATH.
+RUN npm install --no-update-notifier --global vibe-kanban@${WORKER_TAG}
+
+USER node
+
+CMD ["vibe-kanban"]
