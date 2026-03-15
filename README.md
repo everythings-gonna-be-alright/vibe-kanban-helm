@@ -1,6 +1,8 @@
 # Vibe Kanban — Self-Hosted Deployment
 
-A collaborative kanban platform backed by a **Rust API server**, **ElectricSQL** real-time sync, and **PostgreSQL**. This repository contains the production-ready Helm chart and tooling to build, push, and deploy Vibe Kanban on any Kubernetes cluster.
+Helm chart and deployment tooling for running a **self-hosted** [Vibe Kanban](https://github.com/BloopAI/vibe-kanban) instance on Kubernetes — including multi-container builds, security-hardened manifests, and production-ready defaults.
+
+Based on the official [Vibe Kanban deploy-docker guide](https://vibekanban.com/docs/self-hosting/deploy-docker).
 
 ## Architecture
 
