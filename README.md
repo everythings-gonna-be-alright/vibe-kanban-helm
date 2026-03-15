@@ -67,7 +67,7 @@ This is a **known upstream issue** ([BloopAI/vibe-kanban#770](https://github.com
 
 ### CORS Failure When Remote Server Uses a Private IP
 
-If you run the remote server on a **private IP** (e.g. `10.x.x.x`, `172.16.x.x`, `192.168.x.x`) and attempt to connect a worker or browser client from a **public IP**, the connection will fail with CORS errors. The client-side code constructs queries without Origin headers, so the server doesnt build responses with CORS headers and the browser blocks the request from public networks to private. Some kind of default browser policy.
+If you run the remote server on a **private IP** (e.g. `10.x.x.x`, `172.16.x.x`, `192.168.x.x`) and attempt to connect a worker or browser client from a **public IP**, the connection will fail with CORS errors. The client-side code constructs requests without `Origin` headers, so the server does not include CORS headers in its responses. The browser then blocks responses from a private network to a public address — this is enforced by the browser's [Private Network Access](https://chromestatus.com/feature/5152728072060928) policy.
 
 **Workaround:** Bind the remote server to ingress with a **public IP**. You can use allowlist to restrict access to the remote server from only your network.
 
