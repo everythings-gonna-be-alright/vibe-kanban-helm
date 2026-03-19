@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-read -rp "REMOTE_SERVER_TAG [remote-v0.1.22]: " REMOTE_SERVER_TAG
-REMOTE_SERVER_TAG="${REMOTE_SERVER_TAG:-remote-v0.1.22}"
+read -rp "REMOTE_SERVER_TAG [remote-v0.1.24]: " REMOTE_SERVER_TAG
+REMOTE_SERVER_TAG="${REMOTE_SERVER_TAG:-remote-v0.1.24}"
 
-read -rp "WORKER_TAG [v0.1.30]: " WORKER_TAG
-WORKER_TAG="${WORKER_TAG:-v0.1.30}"
+read -rp "WORKER_TAG [v0.1.33]: " WORKER_TAG
+WORKER_TAG="${WORKER_TAG:-v0.1.33}"
 
 read -rp "DOCKER_REGISTRY [your-registry]: " DOCKER_REGISTRY
 DOCKER_REGISTRY="${DOCKER_REGISTRY:-your-registry}"

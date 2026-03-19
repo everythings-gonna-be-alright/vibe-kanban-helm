@@ -26,8 +26,8 @@ You will be prompted for:
 
 | Prompt                    | Default                         | Notes                                                           |
 |---------------------------|---------------------------------|-----------------------------------------------------------------|
-| `REMOTE_SERVER_TAG`       | `remote-v0.1.22`                | Git tag to checkout; used as the server image tag               |
-| `WORKER_TAG`              | `v0.1.30`                       | npm package version for `vibe-kanban` worker                    |
+| `REMOTE_SERVER_TAG`       | `remote-v0.1.24`                | Git tag to checkout; used as the server image tag               |
+| `WORKER_TAG`              | `v0.1.33`                       | npm package version for `vibe-kanban` worker                    |
 | `DOCKER_REGISTRY`         | `your-registry`                 | Container registry prefix (e.g. `harbor.example.com/myproject`) |
 | `VITE_RELAY_API_BASE_URL` | `https://relay.your-domain.com` | **Build-time** argument baked into the Vite frontend bundle     |
 
@@ -53,18 +53,6 @@ The container runs as the non-root `node` user.
 
 ## Known Issues
 
-### Virtuoso.dev License Warning
-
-The Vite frontend uses the [Virtuoso](https://virtuoso.dev) library for virtualized list rendering. In self-hosted deployments, you may see the following console error:
-
-> `Your VirtuosoMessageListLicense is missing a license key. Purchase one from https://virtuoso.dev/pricing/`
-
-This is a **known upstream issue** ([BloopAI/vibe-kanban#770](https://github.com/BloopAI/vibe-kanban/issues/770)). The warning does not block functionality but may cause visual glitches in the message list component on the server-hosted UI. Possible workarounds:
-
-1. **Purchase a Virtuoso license** and provide the key via the application configuration
-2. **Track the upstream issue** for a resolution or migration to an alternative library
-3. The warning is cosmetic in most scenarios and can be safely ignored for internal/dev deployments
-
 ### CORS Failure When Remote Server Uses a Private IP
 
 If you run the remote server on a **private IP** (e.g. `10.x.x.x`, `172.16.x.x`, `192.168.x.x`) and attempt to connect a worker or browser client from a **public IP**, the connection will fail with CORS errors. The client-side code constructs requests without `Origin` headers, so the server does not include CORS headers in its responses. The browser then blocks responses from a private network to a public address — this is enforced by the browser's [Private Network Access](https://chromestatus.com/feature/5152728072060928) policy.
@@ -87,11 +75,11 @@ If you run the remote server on a **private IP** (e.g. `10.x.x.x`, `172.16.x.x`,
 helm install vibe-kanban ./helm/vibe-kanban \
   --namespace vibe-kanban --create-namespace \
   --set server.image.repository=harbor.example.com/myproject/vibe-kanban \
-  --set server.image.tag=remote-v0.1.22 \
+  --set server.image.tag=remote-v0.1.24 \
   --set relay.image.repository=harbor.example.com/myproject/vibe-kanban \
-  --set relay.image.tag=relay-remote-v0.1.22 \
+  --set relay.image.tag=relay-remote-v0.1.24 \
   --set worker.image.repository=harbor.example.com/myproject/vibe-kanban \
-  --set worker.image.tag=worker-v0.1.30 \
+  --set worker.image.tag=worker-v0.1.33 \
   --set ingress.enabled=true \
   --set ingress.host=kanban.example.com \
   --set relay.ingress.enabled=true \
