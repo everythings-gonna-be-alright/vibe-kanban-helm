@@ -2,14 +2,12 @@ name: Release Helm Chart
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - "helm/vibe-kanban/**"
+    tags:
+      - "*"
 
 permissions:
-  contents: write
-  pages: write
+  contents: read
+  packages: write
 
 jobs:
   release:
@@ -20,28 +18,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure Git
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Create gh-pages branch if missing
-        run: |
-          if ! git ls-remote --exit-code --heads origin gh-pages; then
-            git checkout --orphan gh-pages
-            git rm -rf .
-            git commit --allow-empty -m "Initialize gh-pages branch"
-            git push origin gh-pages
-            git checkout main
-          fi
-
       - name: Install Helm
         uses: azure/setup-helm@v4
 
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.7.0
-        with:
-          charts_dir: helm
-          skip_existing: true
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Push chart as OCI artifact to GHCR
+        run: |
+          helm package helm/vibe-kanban --destination .cr-release-packages
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io \
+            --username "${{ github.repository_owner }}" --password-stdin
+          helm push .cr-release-packages/*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+          helm registry logout ghcr.io
