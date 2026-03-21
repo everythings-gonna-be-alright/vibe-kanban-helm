@@ -35,7 +35,7 @@ jobs:
 
           SERVER_TAG=$(yq '.server.image.tag' "$VALUES")
           RELAY_TAG=$(yq '.relay.image.tag' "$VALUES")
-          WORKER_TAG=$(yq '.worker.image.tag' "$VALUES")
+          WORKER_TAG=$(yq '.worker.image.tag' "$VALUES" | sed 's/^v//')
 
           echo "server_tag=${SERVER_TAG}" >> "$GITHUB_OUTPUT"
           echo "relay_tag=${RELAY_TAG}"   >> "$GITHUB_OUTPUT"
