@@ -37,6 +37,11 @@ jobs:
           RELAY_TAG=$(yq '.relay.image.tag' "$VALUES")
           WORKER_TAG=$(yq '.worker.image.tag' "$VALUES")
 
+          echo "server_tag=${SERVER_TAG}" >> "$GITHUB_OUTPUT"
+          echo "relay_tag=${RELAY_TAG}"   >> "$GITHUB_OUTPUT"
+          echo "worker_tag=${WORKER_TAG}" >> "$GITHUB_OUTPUT"
+          echo "vite_relay_url=${{ vars.VITE_RELAY_API_BASE_URL }}" >> "$GITHUB_OUTPUT"
+
   build-server:
     needs: resolve-tags
     runs-on: ubuntu-latest
