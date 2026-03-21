@@ -257,7 +257,7 @@ worker:
   enabled: true
   image:
     repository: ghcr.io/everythings-gonna-be-alright/vibe-kanban
-    tag: "v0.1.33"  # defaults to Chart.AppVersion
+    tag: "0.1.33"  # defaults to Chart.AppVersion
     pullPolicy: Always
 
   replicaCount: 1
