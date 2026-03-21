@@ -131,7 +131,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:worker-${{ needs.resolve-tags.outputs.worker_tag }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:worker-latest
 
-  release-chart:
+  release-helm-chart:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
