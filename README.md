@@ -26,7 +26,8 @@ You will be prompted for:
 
 | Prompt                    | Default                         | Notes                                                           |
 |---------------------------|---------------------------------|-----------------------------------------------------------------|
-| `REMOTE_SERVER_TAG`       | `remote-v0.1.24`                | Git tag to checkout; used as the server image tag               |
+| `REMOTE_SERVER_TAG`       | `remote-v0.1.25`                | Git tag to checkout; used as the server image tag               |
+| `RELAY_SERVER_TAG`        | `relay-v0.1.6`                  | Git tag to checkout; used as the relay image tag                |
 | `WORKER_TAG`              | `v0.1.33`                       | npm package version for `vibe-kanban` worker                    |
 | `DOCKER_REGISTRY`         | `your-registry`                 | Container registry prefix (e.g. `harbor.example.com/myproject`) |
 | `VITE_RELAY_API_BASE_URL` | `https://relay.your-domain.com` | **Build-time** argument baked into the Vite frontend bundle     |
